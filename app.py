@@ -307,12 +307,76 @@ with st.sidebar:
     
     st.markdown("---")
     
-    if st.button("🚀 Generate", type="primary", use_container_width=True):
+    # Initialize processing state
+if 'processing' not in st.session_state:
+    st.session_state.processing = False
+if 'generation_complete' not in st.session_state:
+    st.session_state.generation_complete = False
+
+# Dynamic button based on state
+if st.session_state.generation_complete:
+    # Green button when complete
+    st.markdown("""
+    <style>
+    .stButton button[kind="primary"] {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+    }
+    .stButton button[kind="primary"]:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button("✅ Generation Complete - Click to Regenerate", type="primary", use_container_width=True):
         st.session_state.generate = True
+        st.session_state.processing = True
+        st.session_state.generation_complete = False
         st.session_state.start_date = start_date
         st.session_state.end_date = end_date
         st.session_state.profile = profile_name
         st.session_state.profile_data = profile_data
+        st.rerun()
+        
+elif st.session_state.processing:
+    # Yellow/Orange button during processing
+    st.markdown("""
+    <style>
+    .stButton button[kind="primary"] {
+        background-color: #ff9800 !important;
+        border-color: #ff9800 !important;
+        cursor: wait !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.button("⏳ Processing... Please Wait", type="primary", disabled=True, use_container_width=True)
+    
+else:
+    # Red button initially (default primary color or custom red)
+    st.markdown("""
+    <style>
+    .stButton button[kind="primary"] {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+    }
+    .stButton button[kind="primary"]:hover {
+        background-color: #c82333 !important;
+        border-color: #bd2130 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚀 Generate Calendar", type="primary", use_container_width=True):
+        st.session_state.generate = True
+        st.session_state.processing = True
+        st.session_state.generation_complete = False
+        st.session_state.start_date = start_date
+        st.session_state.end_date = end_date
+        st.session_state.profile = profile_name
+        st.session_state.profile_data = profile_data
+        st.rerun()
 
 if 'generate' not in st.session_state:
     st.info("👆 Configure settings and click Generate")
