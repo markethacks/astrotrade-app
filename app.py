@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import sys
 import os
+import json
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.trading_logic import TradingCalendar
@@ -16,15 +18,35 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'About': "AstroTradeDaysDays v1.6"
+        'About': "AstroTradeDays by Market Hacks | v2.0"
     }
 )
 
 # Mobile-responsive CSS
 st.markdown("""
 <style>
-    /* Mobile optimizations */
+    /* Market Hacks Branding */
+    .market-hacks-badge {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 14px;
+        z-index: 1000;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
     @media (max-width: 768px) {
+        .market-hacks-badge {
+            top: 5px;
+            right: 5px;
+            padding: 6px 12px;
+            font-size: 11px;
+        }
         .main .block-container {
             padding: 1rem 0.5rem;
             max-width: 100%;
@@ -37,17 +59,8 @@ st.markdown("""
         h1 { font-size: 1.5rem !important; }
         h2 { font-size: 1.3rem !important; }
         h3 { font-size: 1.1rem !important; }
-        
-        /* Make metrics stack vertically on mobile */
-        [data-testid="stMetric"] {
-            background-color: #f8f9fa;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
     }
     
-    /* Desktop table styles */
     .cal-table { 
         width: 100%; 
         border-collapse: collapse; 
@@ -57,7 +70,6 @@ st.markdown("""
         display: block;
     }
     
-    /* Mobile table styles */
     @media (max-width: 768px) {
         .cal-table {
             font-size: 11px;
@@ -88,32 +100,21 @@ st.markdown("""
     .closed-bg { background-color: #e2e3e5; }
     .warn-text { color: #dc3545; font-weight: bold; }
     
-    /* Mobile-friendly inputs */
     @media (max-width: 768px) {
-        input[type="number"] {
-            font-size: 16px !important; /* Prevents zoom on iOS */
-        }
-        .stTextInput input {
+        input[type="number"], .stTextInput input {
             font-size: 16px !important;
         }
     }
-    
-    /* Improve sidebar on mobile */
-    @media (max-width: 768px) {
-        section[data-testid="stSidebar"] {
-            width: 100% !important;
-        }
-    }
 </style>
+
+<div class="market-hacks-badge">
+    ⚡ Market Hacks
+</div>
 """, unsafe_allow_html=True)
 
-# Mobile detection
-def is_mobile():
-    return st.session_state.get('mobile_view', False)
-
-# Header - more compact on mobile
+# Header
 st.title("🌙 AstroTradeDays")
-st.caption("*Personalized Astro-Trading Calendar*")
+st.caption("*Personalized Astro-Trading Calendar by Market Hacks*")
 
 GEOPY_AVAILABLE = False
 try:
@@ -122,38 +123,81 @@ try:
 except ImportError:
     pass
 
+# Local storage helper functions
+def get_saved_profiles():
+    """Get saved profiles from browser storage simulation"""
+    if 'saved_profiles' not in st.session_state:
+        st.session_state.saved_profiles = {}
+    return st.session_state.saved_profiles
+
+def save_profile(name, data):
+    """Save profile locally"""
+    if 'saved_profiles' not in st.session_state:
+        st.session_state.saved_profiles = {}
+    st.session_state.saved_profiles[name] = data
+    return True
+
+def delete_profile(name):
+    """Delete saved profile"""
+    if 'saved_profiles' in st.session_state and name in st.session_state.saved_profiles:
+        del st.session_state.saved_profiles[name]
+        return True
+    return False
+
+def generate_google_calendar_link(date, title, description):
+    """Generate Google Calendar add event link"""
+    from urllib.parse import quote
+    
+    # Format: YYYYMMDD
+    date_str = date.strftime('%Y%m%d')
+    
+    # All-day event format
+    dates = f"{date_str}/{date_str}"
+    
+    # Encode parameters
+    text = quote(title)
+    details = quote(description)
+    
+    # Generate link
+    link = f"https://calendar.google.com/calendar/render?action=TEMPLATE&text={text}&dates={dates}&details={details}&sf=true"
+    
+    return link
+
 with st.sidebar:
     st.header("⚙️ Settings")
-    st.markdown("### 📋 Profile")
-    input_method = st.radio("Choose:", ["✏️ Manual"], index=0, label_visibility="collapsed")
+    
+    # Profile Management Section
+    st.markdown("### 👤 Profile Management")
+    
+    saved_profiles = get_saved_profiles()
+    
+    if saved_profiles:
+        profile_names = ["➕ New Profile"] + list(saved_profiles.keys())
+        selected_profile = st.selectbox("Select Profile", profile_names)
+        
+        if selected_profile != "➕ New Profile":
+            if st.button("🗑️ Delete Profile", use_container_width=True):
+                delete_profile(selected_profile)
+                st.success(f"Deleted {selected_profile}")
+                st.rerun()
+            
+            # Load profile data
+            profile_data = saved_profiles[selected_profile]
+            profile_name = selected_profile
+            load_existing = True
+        else:
+            load_existing = False
+            profile_name = ""
+    else:
+        load_existing = False
+        profile_name = ""
+    
     st.markdown("---")
     
-    # Existing profiles disabled for public deployment
-    if False and input_method == "📌 Existing":
-        # Load profiles from Streamlit secrets
-        try:
-            available_profiles = list(st.secrets["profiles"].keys())
-            profile_name = st.selectbox("Select Profile", available_profiles)
-            
-            # Get profile data from secrets
-            secret_profile = st.secrets["profiles"][profile_name]
-            profile_data = {
-                "dob": secret_profile["dob"],
-                "tob": secret_profile["tob"],
-                "pob": secret_profile["pob"],
-                "lat": float(secret_profile["lat"]),
-                "lon": float(secret_profile["lon"]),
-                "lagna": secret_profile["lagna"]
-            }
-        except Exception as e:
-            st.error(f"Error loading profiles: {e}")
-            st.info("Please configure profiles in App Settings → Secrets")
-            st.stop()
-    else:
-        st.markdown("### ✏️ Manual Entry")
-        profile_name = st.text_input("Name", "My Profile", label_visibility="collapsed", placeholder="Your Name")
+    if not load_existing:
+        st.markdown("### ✏️ Enter Details")
+        profile_name = st.text_input("Profile Name", value=profile_name or "My Profile", placeholder="e.g., John Trader")
         
-        # Mobile-friendly date/time inputs
         dob = st.date_input("📅 DOB", value=datetime(1990, 5, 15), min_value=datetime(1900, 1, 1), max_value=datetime.now())
         
         st.write("⏰ **Time of Birth (IST)**")
@@ -173,7 +217,7 @@ with st.sidebar:
             if st.button("🔍 Fetch Coordinates", use_container_width=True):
                 with st.spinner('Searching...'):
                     try:
-                        geolocator = Nominatim(user_agent="astrotradedays_v1", timeout=10)
+                        geolocator = Nominatim(user_agent="astrotradedays_v2", timeout=10)
                         location = geolocator.geocode(f"{pob_input}, India")
                         if location:
                             st.session_state.fetched_lat = location.latitude
@@ -234,6 +278,23 @@ with st.sidebar:
             lagna = st.selectbox("Select:", ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"], index=4, label_visibility="collapsed")
         
         profile_data = {"dob": dob.strftime("%Y-%m-%d"), "tob": tob_str, "pob": pob, "lat": lat, "lon": lon, "lagna": lagna}
+        
+        # Save profile button
+        if st.button("💾 Save Profile", use_container_width=True, type="secondary"):
+            if profile_name and profile_name != "My Profile":
+                save_profile(profile_name, profile_data)
+                st.success(f"✅ Saved '{profile_name}'!")
+                st.rerun()
+            else:
+                st.warning("Please enter a unique profile name")
+    else:
+        # Show loaded profile
+        st.success(f"📋 **{profile_name}**")
+        with st.expander("View Details"):
+            st.write(f"**DOB:** {profile_data['dob']}")
+            st.write(f"**TOB:** {profile_data['tob']}")
+            st.write(f"**POB:** {profile_data['pob']}")
+            st.write(f"**Lagna:** {profile_data['lagna']}")
     
     st.markdown("---")
     st.subheader("📅 Date Range")
@@ -255,6 +316,26 @@ with st.sidebar:
 
 if 'generate' not in st.session_state:
     st.info("👆 Configure settings and click Generate")
+    
+    # Show Market Hacks branding
+    st.markdown("---")
+    st.markdown("""
+    ### ⚡ About Market Hacks
+    
+    **Market Hacks** is your trusted source for innovative trading tools and insights. 
+    
+    AstroTradeDays combines ancient Vedic wisdom with modern technology to help traders 
+    make informed decisions based on personalized astrological analysis.
+    
+    🌟 **Features:**
+    - Personalized trading calendars
+    - Nakshatra & Navatara analysis
+    - Market-hour change alerts
+    - Google Calendar integration
+    - Profile management
+    
+    *Built with ❤️ by Market Hacks team*
+    """)
 else:
     with st.spinner('🔮 Calculating...'):
         try:
@@ -267,7 +348,7 @@ else:
             st.stop()
     
     df = st.session_state.df
-    tabs = st.tabs(["📅 Calendar", "🌔 Day", "📊 Charts", "📥 Export"])
+    tabs = st.tabs(["📅 Calendar", "🌔 Day", "📊 Charts", "📥 Export", "📆 Google Cal"])
     
     with tabs[0]:
         st.subheader("📅 Trading Calendar")
@@ -275,7 +356,6 @@ else:
         if len(market_changes) > 0:
             st.warning(f"⚠️ {len(market_changes)} market-hour changes")
         
-        # Mobile-friendly metrics
         cols = st.columns(5)
         with cols[0]:
             st.metric("Total", len(df))
@@ -294,7 +374,6 @@ else:
         if show_only:
             filtered_df = filtered_df[filtered_df.get('change_during_market', False) == True]
         
-        # Mobile-responsive table
         html = """<div style="overflow-x: auto;"><table class="cal-table"><thead><tr><th>Date</th><th>Day</th><th>Nakshatra</th><th>Navatara</th><th>Time</th><th>Rec</th></tr></thead><tbody>"""
         for _, row in filtered_df.iterrows():
             rec = row['recommendation']
@@ -378,6 +457,46 @@ else:
                         st.error("💡 Avoid trading")
         else:
             st.success("✅ No changes ahead")
+    
+    with tabs[4]:
+        st.subheader("📆 Add No-Trading Days to Google Calendar")
+        
+        st.info("💡 Click links below to add AVOID days to your Google Calendar")
+        
+        # Filter AVOID days
+        avoid_days = df[df['recommendation'] == 'AVOID']
+        
+        if len(avoid_days) > 0:
+            st.write(f"**{len(avoid_days)} No-Trading Days Found:**")
+            
+            for _, row in avoid_days.iterrows():
+                date = pd.to_datetime(row['date']).date()
+                date_str = date.strftime('%d %b %Y')
+                
+                title = f"🚫 No Trading Day - {row['nakshatra']}"
+                description = f"Navatara: {row['navatara']}\\n{row['reasons']}\\n\\nGenerated by AstroTradeDays (Market Hacks)"
+                
+                gcal_link = generate_google_calendar_link(date, title, description)
+                
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**{date_str}** - {row['weekday']} - {row['nakshatra']}")
+                with col2:
+                    st.link_button("➕ Add", gcal_link, use_container_width=True)
+            
+            # Bulk add option
+            st.markdown("---")
+            st.markdown("### 🔗 Bulk Add (Copy Links)")
+            
+            with st.expander("📋 Show All Links"):
+                for _, row in avoid_days.iterrows():
+                    date = pd.to_datetime(row['date']).date()
+                    title = f"🚫 No Trading Day - {row['nakshatra']}"
+                    description = f"Navatara: {row['navatara']}\\n{row['reasons']}\\n\\nBy AstroTradeDays"
+                    gcal_link = generate_google_calendar_link(date, title, description)
+                    st.code(gcal_link, language=None)
+        else:
+            st.success("✅ No AVOID days in selected range!")
 
 st.markdown("---")
-st.caption(f"*v1.7 Mobile | {st.session_state.get('profile', 'Not Set')}*")
+st.markdown(f"*AstroTradeDays v2.0 by ⚡ Market Hacks | Profile: {st.session_state.get('profile', 'Not Set')}*")
