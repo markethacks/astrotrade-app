@@ -129,17 +129,25 @@ with st.sidebar:
     st.markdown("---")
     
     if input_method == "📌 Existing":
-        profile_name = st.selectbox("Select Profile", ["Vijay", "Rahul", "Priya"])
-        profiles = st.secrets.get("profiles", {})
-        if not profiles:
-            st.warning("No profiles configured. Contact admin.")
-            profiles = {}
-        profile_data = profiles[profile_name]
-        with st.expander("📄 Details"):
-            st.write(f"**DOB:** {profile_data['dob']}")
-            st.write(f"**TOB:** {profile_data['tob']}")
-            st.write(f"**POB:** {profile_data['pob']}")
-            st.write(f"**Lagna:** {profile_data['lagna']}")
+        # Load profiles from Streamlit secrets
+        try:
+            available_profiles = list(st.secrets["profiles"].keys())
+            profile_name = st.selectbox("Select Profile", available_profiles)
+            
+            # Get profile data from secrets
+            secret_profile = st.secrets["profiles"][profile_name]
+            profile_data = {
+                "dob": secret_profile["dob"],
+                "tob": secret_profile["tob"],
+                "pob": secret_profile["pob"],
+                "lat": float(secret_profile["lat"]),
+                "lon": float(secret_profile["lon"]),
+                "lagna": secret_profile["lagna"]
+            }
+        except Exception as e:
+            st.error(f"Error loading profiles: {e}")
+            st.info("Please configure profiles in App Settings → Secrets")
+            st.stop()
     else:
         st.markdown("### ✏️ Manual Entry")
         profile_name = st.text_input("Name", "My Profile", label_visibility="collapsed", placeholder="Your Name")
