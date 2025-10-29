@@ -360,20 +360,10 @@ else:
     }
     </style>
     """, unsafe_allow_html=True)
-    button_clicked = st.button("🚀 Generate Calendar", key="gen_btn", use_container_width=True)
 
 # Handle button click
 if button_clicked:
-    st.session_state.generate = True
-    st.session_state.processing = True
-    st.session_state.generation_complete = False
-    st.session_state.start_date = start_date
-    st.session_state.end_date = end_date
-    st.session_state.profile = profile_name
-    st.session_state.profile_data = profile_data
-    st.rerun()
         
-elif st.session_state.processing:
     # Yellow/Orange button during processing
     st.markdown("""
     <style>
@@ -402,21 +392,11 @@ else:
     </style>
     """, unsafe_allow_html=True)
     
-    if st.button("🚀 Generate Calendar", type="primary", use_container_width=True):
-        st.session_state.generate = True
-        st.session_state.processing = True
-        st.session_state.generation_complete = False
-        st.session_state.start_date = start_date
-        st.session_state.end_date = end_date
-        st.session_state.profile = profile_name
-        st.session_state.profile_data = profile_data
-        st.rerun()
 
 if 'generate' not in st.session_state:
-    st.info("👆 Configure settings and click Generate")
+    st.info("👈 Configure your birth details in the **sidebar** on the left, then click the **Generate Calendar** button at the bottom of the sidebar.")
     
     # Show Market Hacks branding
-    st.markdown("---")
     st.markdown("""
     ### ⚡ About Market Hacks
     
