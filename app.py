@@ -125,10 +125,11 @@ except ImportError:
 with st.sidebar:
     st.header("⚙️ Settings")
     st.markdown("### 📋 Profile")
-    input_method = st.radio("Choose:", ["📌 Existing", "✏️ Manual"], index=0, label_visibility="collapsed")
+    input_method = st.radio("Choose:", ["✏️ Manual"], index=0, label_visibility="collapsed")
     st.markdown("---")
     
-    if input_method == "📌 Existing":
+    # Existing profiles disabled for public deployment
+    if False and input_method == "📌 Existing":
         # Load profiles from Streamlit secrets
         try:
             available_profiles = list(st.secrets["profiles"].keys())
