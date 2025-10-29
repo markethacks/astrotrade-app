@@ -441,10 +441,10 @@ else:
             df = calendar.generate_calendar(st.session_state.start_date, st.session_state.end_date)
             st.success(f"✅ {len(df)} days generated!")
             st.session_state.df = df
-                
-                # IMPORTANT: Update states BEFORE showing success
-                st.session_state.processing = False
-                st.session_state.generation_complete = True
+            
+            # IMPORTANT: Update states BEFORE showing success
+            st.session_state.processing = False
+            st.session_state.generation_complete = True
         except Exception as e:
             st.error(f"Error: {str(e)[:100]}")
             st.stop()
