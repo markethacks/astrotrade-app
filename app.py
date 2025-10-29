@@ -130,9 +130,10 @@ with st.sidebar:
     
     if input_method == "📌 Existing":
         profile_name = st.selectbox("Select Profile", ["Vijay", "Rahul", "Priya"])
-        import json
-        with open('profiles.json') as f:
-            profiles = json.load(f)
+        profiles = st.secrets.get("profiles", {})
+        if not profiles:
+            st.warning("No profiles configured. Contact admin.")
+            profiles = {}
         profile_data = profiles[profile_name]
         with st.expander("📄 Details"):
             st.write(f"**DOB:** {profile_data['dob']}")
