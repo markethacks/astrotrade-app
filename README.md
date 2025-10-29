@@ -1,4 +1,4 @@
-# 🌙 AstroTrade Personal Assistant
+# 🌙 AstroTradeDays
 
 Personalized Astro-Trading Calendar & Analytics Dashboard based on Vedic Astrology.
 
@@ -41,6 +41,10 @@ Personalized Astro-Trading Calendar & Analytics Dashboard based on Vedic Astrolo
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+## 🌐 Live App
+
+[Your live app URL]
 
 ## 👨‍💻 Developer
 

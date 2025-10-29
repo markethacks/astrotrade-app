@@ -11,12 +11,12 @@ from core.reports import ReportGenerator
 from core.astro_engine import calculate_lagna
 
 st.set_page_config(
-    page_title="AstroTradeDays",
+    page_title="AstroTrade",
     page_icon="🌙",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'About': "AstroTradeDaysDays v1.6"
+        'About': "AstroTrade Personal Assistant v1.6"
     }
 )
 
@@ -112,7 +112,7 @@ def is_mobile():
     return st.session_state.get('mobile_view', False)
 
 # Header - more compact on mobile
-st.title("🌙 AstroTradeDays")
+st.title("🌙 AstroTrade")
 st.caption("*Personalized Astro-Trading Calendar*")
 
 GEOPY_AVAILABLE = False
@@ -125,36 +125,27 @@ except ImportError:
 with st.sidebar:
     st.header("⚙️ Settings")
     st.markdown("### 📋 Profile")
-    input_method = st.radio("Choose:", ["✏️ Manual"], index=0, label_visibility="collapsed")
+    input_method = st.radio("Choose:", ["📌 Existing", "✏️ Manual"], index=0, label_visibility="collapsed")
     st.markdown("---")
     
-    # Existing profiles disabled for public deployment
-    if False and input_method == "📌 Existing":
-        # Load profiles from Streamlit secrets
-        try:
-            available_profiles = list(st.secrets["profiles"].keys())
-            profile_name = st.selectbox("Select Profile", available_profiles)
-            
-            # Get profile data from secrets
-            secret_profile = st.secrets["profiles"][profile_name]
-            profile_data = {
-                "dob": secret_profile["dob"],
-                "tob": secret_profile["tob"],
-                "pob": secret_profile["pob"],
-                "lat": float(secret_profile["lat"]),
-                "lon": float(secret_profile["lon"]),
-                "lagna": secret_profile["lagna"]
-            }
-        except Exception as e:
-            st.error(f"Error loading profiles: {e}")
-            st.info("Please configure profiles in App Settings → Secrets")
-            st.stop()
+    if input_method == "📌 Existing":
+        profile_name = st.selectbox("Select Profile", ["Vijay", "Rahul", "Priya"])
+        profiles = st.secrets.get("profiles", {})
+        if not profiles:
+            st.warning("No profiles configured. Contact admin.")
+            profiles = {}
+        profile_data = profiles[profile_name]
+        with st.expander("📄 Details"):
+            st.write(f"**DOB:** {profile_data['dob']}")
+            st.write(f"**TOB:** {profile_data['tob']}")
+            st.write(f"**POB:** {profile_data['pob']}")
+            st.write(f"**Lagna:** {profile_data['lagna']}")
     else:
         st.markdown("### ✏️ Manual Entry")
         profile_name = st.text_input("Name", "My Profile", label_visibility="collapsed", placeholder="Your Name")
         
         # Mobile-friendly date/time inputs
-        dob = st.date_input("📅 DOB", value=datetime(1990, 5, 15), min_value=datetime(1900, 1, 1), max_value=datetime.now())
+        dob = st.date_input("📅 DOB", datetime(1990, 5, 15))
         
         st.write("⏰ **Time of Birth (IST)**")
         col1, col2 = st.columns(2)
@@ -173,7 +164,7 @@ with st.sidebar:
             if st.button("🔍 Fetch Coordinates", use_container_width=True):
                 with st.spinner('Searching...'):
                     try:
-                        geolocator = Nominatim(user_agent="astrotradedays_v1", timeout=10)
+                        geolocator = Nominatim(user_agent="astrotrade_v1", timeout=10)
                         location = geolocator.geocode(f"{pob_input}, India")
                         if location:
                             st.session_state.fetched_lat = location.latitude
@@ -347,7 +338,7 @@ else:
                     report_gen = ReportGenerator()
                     excel_file = report_gen.create_excel_report(df, st.session_state.profile)
                     with open(excel_file, 'rb') as f:
-                        st.download_button("⬇️ Download Excel", f, file_name=f"astrotradedays_{st.session_state.profile}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                        st.download_button("⬇️ Download Excel", f, file_name=f"astrotrade_{st.session_state.profile}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
                     st.success("✅ Ready!")
                 except Exception as e:
                     st.error(f"Error: {str(e)[:50]}")
@@ -355,7 +346,7 @@ else:
         with col2:
             if st.button("📄 CSV", use_container_width=True):
                 csv = df.to_csv(index=False)
-                st.download_button("⬇️ Download CSV", csv, file_name=f"astrotradedays_{st.session_state.profile}.csv", mime="text/csv", use_container_width=True)
+                st.download_button("⬇️ Download CSV", csv, file_name=f"astrotrade_{st.session_state.profile}.csv", mime="text/csv", use_container_width=True)
         
         st.markdown("---")
         st.markdown("### 📍 Upcoming Changes")

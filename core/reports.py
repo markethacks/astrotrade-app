@@ -27,7 +27,7 @@ class ReportGenerator:
         # Title
         ws.merge_cells('A1:J1')
         title_cell = ws['A1']
-        title_cell.value = f"AstroTrade Calendar - {profile_name}"
+        title_cell.value = f"AstroTradeDays Calendar - {profile_name}"
         title_cell.font = Font(size=16, bold=True)
         title_cell.alignment = Alignment(horizontal='center', vertical='center')
         
@@ -156,7 +156,7 @@ class ReportGenerator:
         """Wrapper method for compatibility with app.py"""
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = f"astrotrade_{profile_name}_{timestamp}.xlsx"
+        output_path = f"astrotradedays_{profile_name}_{timestamp}.xlsx"
         return self.generate_excel(df, profile_name, output_path)
 
     def create_telegram_message(self, day_data):
