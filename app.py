@@ -154,7 +154,7 @@ with st.sidebar:
         profile_name = st.text_input("Name", "My Profile", label_visibility="collapsed", placeholder="Your Name")
         
         # Mobile-friendly date/time inputs
-        dob = st.date_input("📅 DOB", datetime(1990, 5, 15))
+        dob = st.date_input("📅 DOB", value=datetime(1990, 5, 15), min_value=datetime(1900, 1, 1), max_value=datetime.now())
         
         st.write("⏰ **Time of Birth (IST)**")
         col1, col2 = st.columns(2)
