@@ -307,37 +307,71 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Initialize processing state
+    # Initialize states
 if 'processing' not in st.session_state:
     st.session_state.processing = False
 if 'generation_complete' not in st.session_state:
     st.session_state.generation_complete = False
 
-# Dynamic button based on state
-if st.session_state.generation_complete:
-    # Green button when complete
+# Button styling and logic
+button_clicked = False
+
+if st.session_state.get('generation_complete', False):
+    # GREEN button after completion
     st.markdown("""
     <style>
-    .stButton button[kind="primary"] {
+    div[data-testid="stSidebar"] .stButton > button {
         background-color: #28a745 !important;
-        border-color: #28a745 !important;
+        color: white !important;
+        border: none !important;
     }
-    .stButton button[kind="primary"]:hover {
+    div[data-testid="stSidebar"] .stButton > button:hover {
         background-color: #218838 !important;
-        border-color: #1e7e34 !important;
     }
     </style>
     """, unsafe_allow_html=True)
+    button_clicked = st.button("✅ Complete - Regenerate?", key="gen_btn", use_container_width=True)
     
-    if st.button("✅ Generation Complete - Click to Regenerate", type="primary", use_container_width=True):
-        st.session_state.generate = True
-        st.session_state.processing = True
-        st.session_state.generation_complete = False
-        st.session_state.start_date = start_date
-        st.session_state.end_date = end_date
-        st.session_state.profile = profile_name
-        st.session_state.profile_data = profile_data
-        st.rerun()
+elif st.session_state.get('processing', False):
+    # ORANGE button during processing
+    st.markdown("""
+    <style>
+    div[data-testid="stSidebar"] .stButton > button {
+        background-color: #ff9800 !important;
+        color: white !important;
+        border: none !important;
+        cursor: not-allowed !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.button("⏳ Processing...", key="gen_btn", disabled=True, use_container_width=True)
+    
+else:
+    # RED button initially
+    st.markdown("""
+    <style>
+    div[data-testid="stSidebar"] .stButton > button {
+        background-color: #dc3545 !important;
+        color: white !important;
+        border: none !important;
+    }
+    div[data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #c82333 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    button_clicked = st.button("🚀 Generate Calendar", key="gen_btn", use_container_width=True)
+
+# Handle button click
+if button_clicked:
+    st.session_state.generate = True
+    st.session_state.processing = True
+    st.session_state.generation_complete = False
+    st.session_state.start_date = start_date
+    st.session_state.end_date = end_date
+    st.session_state.profile = profile_name
+    st.session_state.profile_data = profile_data
+    st.rerun()
         
 elif st.session_state.processing:
     # Yellow/Orange button during processing
@@ -407,6 +441,10 @@ else:
             df = calendar.generate_calendar(st.session_state.start_date, st.session_state.end_date)
             st.success(f"✅ {len(df)} days generated!")
             st.session_state.df = df
+                
+                # IMPORTANT: Update states BEFORE showing success
+                st.session_state.processing = False
+                st.session_state.generation_complete = True
         except Exception as e:
             st.error(f"Error: {str(e)[:100]}")
             st.stop()
