@@ -1,0 +1,26 @@
+{
+  "Vijay": {
+    "dob": "1983-11-21",
+    "tob": "05:50",
+    "pob": "Delhi, India",
+    "lat": 28.661,
+    "lon": 77.133,
+    "lagna": "Libra"
+  },
+  "Rahul": {
+    "dob": "1990-03-15",
+    "tob": "14:30",
+    "pob": "Mumbai, India",
+    "lat": 19.076,
+    "lon": 72.877,
+    "lagna": "Leo"
+  },
+  "Priya": {
+    "dob": "1995-07-08",
+    "tob": "08:20",
+    "pob": "Bangalore, India",
+    "lat": 12.972,
+    "lon": 77.594,
+    "lagna": "Cancer"
+  }
+}

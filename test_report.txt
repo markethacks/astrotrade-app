@@ -1,0 +1,89 @@
+================================================================================
+           ASTROTRADE PERSONAL ASSISTANT - COMPLETE TEST REPORT
+================================================================================
+Test Date: Wed Oct 29 11:31:43 IST 2025
+Directory: /Users/vijaykumar/personal_astro_dates/astrotrade_personal_assistant
+
+----------------------------------------------------------------------------
+[TEST 1] Directory Structure
+----------------------------------------------------------------------------
+Files in current directory:
+-rw-r--r--  1 vijaykumar  staff   5.4K Oct 29 07:53 app.py
+-rw-r--r--@ 1 vijaykumar  staff   1.0K Oct 28 18:55 config.json
+-rw-r--r--  1 vijaykumar  staff   1.5K Oct 29 06:29 create_ephemeris.py
+-rw-r--r--@ 1 vijaykumar  staff   5.9K Oct 28 19:01 example_run.py
+-rw-r--r--  1 vijaykumar  staff   1.3K Oct 29 06:36 generate_working_ephemeris.py
+-rw-r--r--@ 1 vijaykumar  staff   454B Oct 28 18:54 profiles.json
+-rwxr-xr-x  1 vijaykumar  staff   8.9K Oct 29 11:30 run_full_test.sh
+-rwxr-xr-x@ 1 vijaykumar  staff   3.2K Oct 28 19:00 setup.sh
+-rw-r--r--  1 vijaykumar  staff   3.9K Oct 29 11:24 test_full_flow.py
+
+Core directory contents:
+total 72
+-rw-r--r--@  1 vijaykumar  staff   246B Oct 28 18:57 __init__.py
+drwxr-xr-x  10 vijaykumar  staff   320B Oct 29 06:37 __pycache__
+-rw-r--r--@  1 vijaykumar  staff    10K Oct 29 06:37 astro_engine.py
+-rw-r--r--@  1 vijaykumar  staff   6.9K Oct 28 18:57 reports.py
+-rw-r--r--@  1 vijaykumar  staff   8.5K Oct 28 18:56 trading_logic.py
+
+----------------------------------------------------------------------------
+[TEST 2] Python Environment
+----------------------------------------------------------------------------
+./run_full_test.sh: line 28: python: command not found
+
+Checking required packages:
+./run_full_test.sh: line 31: python: command not found
+
+----------------------------------------------------------------------------
+[TEST 3] App.py Verification
+----------------------------------------------------------------------------
+Total lines in app.py:      153
+
+Checking key features:
+  ❌ Profile input radio button
+  ❌ Geocoding fetch button
+  ❌ Market alert styling
+  ❌ Geopy import
+  ✅ TradingCalendar import
+
+----------------------------------------------------------------------------
+[TEST 4] Geocoding Test
+----------------------------------------------------------------------------
+./run_full_test.sh: line 61: python: command not found
+
+----------------------------------------------------------------------------
+[TEST 5] Core Module Import Test
+----------------------------------------------------------------------------
+./run_full_test.sh: line 87: python: command not found
+
+----------------------------------------------------------------------------
+[TEST 6] Calendar Generation Test
+----------------------------------------------------------------------------
+./run_full_test.sh: line 118: python: command not found
+
+----------------------------------------------------------------------------
+[TEST 7] Manual Profile Test (with Shimla coordinates)
+----------------------------------------------------------------------------
+./run_full_test.sh: line 164: python: command not found
+
+----------------------------------------------------------------------------
+[TEST 8] Report Generation Test
+----------------------------------------------------------------------------
+./run_full_test.sh: line 199: python: command not found
+
+----------------------------------------------------------------------------
+[TEST 9] Streamlit Startup Test
+----------------------------------------------------------------------------
+Checking if Streamlit can validate app.py...
+  ❌ Streamlit cannot run app.py
+
+================================================================================
+                              TEST SUMMARY
+================================================================================
+
+If all tests show ✅, the app is working correctly!
+
+To start the app, run:
+  python -m streamlit run app.py
+
+================================================================================

@@ -1,0 +1,594 @@
+"""
+AstroTrade Personal Assistant - Main Streamlit Application
+"""
+import streamlit as st
+import pandas as pd
+import json
+from datetime import datetime, timedelta, date
+import plotly.express as px
+import plotly.graph_objects as go
+import os
+
+# Import core modules
+from core.trading_logic import TradingCalendar
+from core.reports import ReportGenerator
+
+# Page configuration
+st.set_page_config(
+    page_title="AstroTrade Personal Assistant",
+    page_icon="🌙",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .sub-header {
+        font-size: 1.2rem;
+        color: #666;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .trade-badge {
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        display: inline-block;
+    }
+    .trade { background-color: #C6EFCE; color: #006100; }
+    .light { background-color: #FFEB9C; color: #9C6500; }
+    .avoid { background-color: #FFC7CE; color: #9C0006; }
+    .closed { background-color: #D9D9D9; color: #333; }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize session state
+if 'calendar_df' not in st.session_state:
+    st.session_state.calendar_df = None
+if 'profile_name' not in st.session_state:
+    st.session_state.profile_name = None
+if 'trading_calendar' not in st.session_state:
+    st.session_state.trading_calendar = None
+
+# Load profiles
+@st.cache_data
+def load_profiles():
+    try:
+        with open('profiles.json', 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+@st.cache_data
+def load_config():
+    try:
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+profiles = load_profiles()
+config = load_config()
+
+# Header
+st.markdown('<div class="main-header">🌙 AstroTrade Personal Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Personalized Astro-Trading Calendar & Analytics Dashboard</div>', unsafe_allow_html=True)
+
+# Sidebar
+with st.sidebar:
+    st.image("https://img.icons8.com/fluency/96/moon-satellite.png", width=80)
+    st.title("⚙️ Settings")
+    
+    # Profile selection
+    if profiles:
+        profile_name = st.selectbox(
+            "📋 Select Profile",
+            options=list(profiles.keys()),
+            help="Choose your birth profile"
+        )
+        
+        profile_data = profiles[profile_name]
+        
+        with st.expander("👤 Profile Details"):
+            st.write(f"**Name:** {profile_name}")
+            st.write(f"**DOB:** {profile_data['dob']}")
+            st.write(f"**TOB:** {profile_data['tob']}")
+            st.write(f"**POB:** {profile_data['pob']}")
+            st.write(f"**Lagna:** {profile_data['lagna']}")
+    else:
+        st.error("No profiles found! Please create profiles.json")
+        st.stop()
+    
+    st.divider()
+    
+    # Date range
+    st.subheader("📅 Date Range")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        start_date = st.date_input(
+            "Start Date",
+            value=date(2025, 9, 1),
+            help="Select start date"
+        )
+    
+    with col2:
+        end_date = st.date_input(
+            "End Date",
+            value=date(2025, 12, 31),
+            help="Select end date"
+        )
+    
+    st.divider()
+    
+    # Options
+    st.subheader("🎛️ Options")
+    include_hora = st.checkbox("Include Hora View", value=True)
+    include_panchanga = st.checkbox("Include Panchanga Details", value=True)
+    enable_backtest = st.checkbox("Backtest with Trade Log", value=False)
+    enable_telegram = st.checkbox("Send Telegram Alert", value=False)
+    
+    if enable_telegram:
+        telegram_token = st.text_input("Bot Token", type="password")
+        telegram_chat_id = st.text_input("Chat ID")
+    
+    st.divider()
+    
+    # Generate button
+    generate_btn = st.button("🚀 Generate Calendar", type="primary", use_container_width=True)
+    
+    if generate_btn:
+        if start_date >= end_date:
+            st.error("End date must be after start date!")
+        else:
+            with st.spinner("Generating calendar... This may take a moment."):
+                try:
+                    # Create trading calendar
+                    trading_calendar = TradingCalendar(profile_data)
+                    calendar_df = trading_calendar.generate_calendar(start_date, end_date)
+                    
+                    # Store in session state
+                    st.session_state.calendar_df = calendar_df
+                    st.session_state.profile_name = profile_name
+                    st.session_state.trading_calendar = trading_calendar
+                    
+                    st.success(f"✅ Calendar generated for {len(calendar_df)} days!")
+                except Exception as e:
+                    st.error(f"Error generating calendar: {str(e)}")
+                    st.error("Make sure Swiss Ephemeris data files are in the ./sweph directory")
+
+# Main content
+if st.session_state.calendar_df is not None:
+    df = st.session_state.calendar_df
+    
+    # Create tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🗓️ Daily Calendar",
+        "🌔 Hora & Panchanga View",
+        "📊 Analytics",
+        "🔔 Alerts & Reports"
+    ])
+    
+    # TAB 1: Daily Calendar
+    with tab1:
+        st.header("📅 Trading Calendar")
+        
+        # Summary metrics
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        total_days = len(df)
+        trade_days = len(df[df['recommendation'] == 'TRADE'])
+        light_days = len(df[df['recommendation'] == 'LIGHT'])
+        avoid_days = len(df[df['recommendation'] == 'AVOID'])
+        closed_days = len(df[df['recommendation'] == 'CLOSED'])
+        
+        col1.metric("Total Days", total_days)
+        col2.metric("🟢 Trade Days", trade_days, delta=f"{trade_days/total_days*100:.1f}%")
+        col3.metric("🟡 Light Days", light_days, delta=f"{light_days/total_days*100:.1f}%")
+        col4.metric("🔴 Avoid Days", avoid_days, delta=f"{avoid_days/total_days*100:.1f}%")
+        col5.metric("🔒 Closed Days", closed_days, delta=f"{closed_days/total_days*100:.1f}%")
+        
+        st.divider()
+        
+        # Filter options
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            filter_rec = st.multiselect(
+                "Filter by Recommendation",
+                options=['TRADE', 'LIGHT', 'AVOID', 'CLOSED'],
+                default=['TRADE', 'LIGHT', 'AVOID', 'CLOSED']
+            )
+        
+        with col2:
+            filter_nak = st.multiselect(
+                "Filter by Nakshatra",
+                options=df['nakshatra'].unique().tolist()
+            )
+        
+        with col3:
+            filter_navatara = st.multiselect(
+                "Filter by Navatara",
+                options=df['navatara'].unique().tolist()
+            )
+        
+        # Apply filters
+        filtered_df = df.copy()
+        if filter_rec:
+            filtered_df = filtered_df[filtered_df['recommendation'].isin(filter_rec)]
+        if filter_nak:
+            filtered_df = filtered_df[filtered_df['nakshatra'].isin(filter_nak)]
+        if filter_navatara:
+            filtered_df = filtered_df[filtered_df['navatara'].isin(filter_navatara)]
+        
+        # Display calendar table
+        st.subheader(f"📋 Calendar ({len(filtered_df)} days)")
+        
+        # Format display dataframe
+        display_df = filtered_df[[
+            'date', 'weekday', 'nakshatra', 'pada', 'navatara', 
+            'change_time', 'recommendation', 'reasons', 'moon_phase'
+        ]].copy()
+        
+        display_df['date'] = pd.to_datetime(display_df['date']).dt.strftime('%d-%b-%Y')
+        display_df['nakshatra_full'] = display_df['nakshatra'] + ' (' + display_df['pada'].astype(str) + ')'
+        
+        # Add marker for changes during market hours
+        display_df['change_display'] = display_df.apply(
+            lambda row: row['change_time'] + ' 🔺' if filtered_df.loc[row.name, 'change_during_market'] else row['change_time'],
+            axis=1
+        )
+        
+        final_display = display_df[[
+            'date', 'weekday', 'nakshatra_full', 'navatara', 
+            'change_display', 'recommendation', 'reasons', 'moon_phase'
+        ]].copy()
+        
+        final_display.columns = ['Date', 'Day', 'Nakshatra', 'Navatara', 'Change Time', 'Recommendation', 'Reasons', 'Moon Phase']
+        
+        # Color-code recommendations
+        def highlight_recommendation(row):
+            colors = {
+                'TRADE': 'background-color: #C6EFCE',
+                'LIGHT': 'background-color: #FFEB9C',
+                'AVOID': 'background-color: #FFC7CE',
+                'CLOSED': 'background-color: #D9D9D9'
+            }
+            rec = row['Recommendation']
+            color = colors.get(rec, '')
+            return [color if col == 'Recommendation' else '' for col in row.index]
+        
+        st.dataframe(
+            final_display.style.apply(highlight_recommendation, axis=1),
+            use_container_width=True,
+            height=600
+        )
+    
+    # TAB 2: Hora & Panchanga
+    with tab2:
+        st.header("🌔 Hora & Panchanga View")
+        
+        if include_hora or include_panchanga:
+            # Date selector
+            selected_date = st.date_input(
+
+    day_data = df[pd.to_datetime(df["date"]).dt.date == selected_date]
+    
+    if not day_data.empty:
+        row = day_data.iloc[0]
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Date", row['date'].strftime('%d %b %Y') if hasattr(row['date'], 'strftime') else str(row['date']))
+            st.metric("Day", row['weekday'])
+            st.metric("Recommendation", row['recommendation'])
+        
+        with col2:
+            st.metric("Nakshatra", f"{row['nakshatra']} (Pada {row['pada']})")
+            st.metric("Navatara", row['navatara'])
+            st.metric("Moon Sign", row['moon_sign'])
+        
+        with col3:
+            st.metric("Tithi", row.get('tithi', 'N/A'))
+            st.metric("Yoga", row.get('yoga', 'N/A'))
+            st.metric("Day Lord", row.get('day_lord', 'N/A'))
+        
+        st.subheader("Detailed Analysis")
+        st.write(row['reasons'])
+    else:
+        st.warning("No data available for selected date")
+
+        else:
+            st.info("Enable 'Include Hora View' or 'Include Panchanga Details' in sidebar to view this section")
+    
+    # TAB 3: Analytics
+    with tab3:
+        st.header("📊 Analytics Dashboard")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Recommendation distribution pie chart
+            rec_counts = df['recommendation'].value_counts()
+            
+            fig1 = px.pie(
+                values=rec_counts.values,
+                names=rec_counts.index,
+                title="Trading Day Distribution",
+                color=rec_counts.index,
+                color_discrete_map={
+                    'TRADE': '#C6EFCE',
+                    'LIGHT': '#FFEB9C',
+                    'AVOID': '#FFC7CE',
+                    'CLOSED': '#D9D9D9'
+                }
+            )
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            # Navatara distribution
+            navatara_counts = df['navatara'].value_counts()
+            
+            fig2 = px.bar(
+                x=navatara_counts.index,
+                y=navatara_counts.values,
+                title="Navatara Distribution",
+                labels={'x': 'Navatara', 'y': 'Days'},
+                color=navatara_counts.values,
+                color_continuous_scale='viridis'
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        st.divider()
+        
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            # Recommendations by Navatara
+            pivot_data = df.groupby(['navatara', 'recommendation']).size().unstack(fill_value=0)
+            
+            fig3 = px.bar(
+                pivot_data,
+                title="Recommendations by Navatara",
+                labels={'value': 'Days', 'navatara': 'Navatara'},
+                barmode='stack'
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+        
+        with col4:
+            # Moon Phase distribution
+            phase_counts = df['moon_phase'].value_counts()
+            
+            fig4 = px.bar(
+                x=phase_counts.index,
+                y=phase_counts.values,
+                title="Moon Phase Distribution",
+                labels={'x': 'Moon Phase', 'y': 'Days'}
+            )
+            fig4.update_xaxes(tickangle=-45)
+            st.plotly_chart(fig4, use_container_width=True)
+        
+        # Backtest section
+        if enable_backtest:
+            st.divider()
+            st.subheader("📈 Backtest Analysis")
+            
+            uploaded_file = st.file_uploader(
+                "Upload Trade Log (CSV)",
+                type=['csv'],
+                help="Upload your trade log with columns: date, symbol, entry_price, exit_price, quantity, pnl, trade_type"
+            )
+            
+            if uploaded_file is not None:
+                try:
+                    trade_df = pd.read_csv(uploaded_file)
+                    trade_df['date'] = pd.to_datetime(trade_df['date']).dt.date
+                    
+                    # Merge with calendar
+                    df['date_only'] = df['date'].dt.date
+                    merged_df = trade_df.merge(
+                        df[['date_only', 'recommendation', 'navatara', 'nakshatra']],
+                        left_on='date',
+                        right_on='date_only',
+                        how='left'
+                    )
+                    
+                    # Analysis by recommendation
+                    st.subheader("Performance by Trading Decision")
+                    
+                    perf_by_rec = merged_df.groupby('recommendation')['pnl'].agg(['sum', 'mean', 'count'])
+                    perf_by_rec.columns = ['Total P/L', 'Avg P/L', 'Trades']
+                    
+                    st.dataframe(perf_by_rec, use_container_width=True)
+                    
+                    # Cumulative P/L chart
+                    merged_df['cumulative_pnl'] = merged_df['pnl'].cumsum()
+                    
+                    fig5 = px.line(
+                        merged_df,
+                        x='date',
+                        y='cumulative_pnl',
+                        color='recommendation',
+                        title="Cumulative P/L by Trading Decision",
+                        labels={'cumulative_pnl': 'Cumulative P/L', 'date': 'Date'}
+                    )
+                    st.plotly_chart(fig5, use_container_width=True)
+                    
+                    # Win rate by Nakshatra
+                    merged_df['is_win'] = merged_df['pnl'] > 0
+                    win_rate = merged_df.groupby('nakshatra').agg({
+                        'is_win': 'mean',
+                        'pnl': ['sum', 'count']
+                    }).round(3)
+                    
+                    win_rate.columns = ['Win Rate', 'Total P/L', 'Trades']
+                    win_rate = win_rate.sort_values('Win Rate', ascending=False)
+                    
+                    st.subheader("Win Rate by Nakshatra")
+                    st.dataframe(win_rate, use_container_width=True)
+                    
+                except Exception as e:
+                    st.error(f"Error processing trade log: {str(e)}")
+    
+    # TAB 4: Alerts & Reports
+    with tab4:
+        st.header("🔔 Alerts & Reports")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📱 Telegram Alerts")
+            
+            if enable_telegram:
+                # Select date for alert preview
+                alert_date = st.date_input(
+                    "Preview Alert for Date",
+                    value=df['date'].iloc[0] if isinstance(df['date'].iloc[0], date) else pd.to_datetime(df['date'].iloc[0]).date(),
+                    min_value=df['date'].min() if isinstance(df['date'].min(), date) else pd.to_datetime(df['date'].min()).date(),
+                    max_value=df['date'].max() if isinstance(df['date'].max(), date) else pd.to_datetime(df['date'].max()).date()
+                )
+                
+                day_data = df[df['date'] == alert_date]
+                
+                if not day_data.empty:
+                    from core.reports import ReportGenerator
+                    report_gen = ReportGenerator()
+                    
+                    message = report_gen.create_telegram_message(day_data.iloc[0].to_dict())
+                    
+                    st.markdown("**Message Preview:**")
+                    st.code(message, language='markdown')
+                    
+                    if st.button("Send Test Alert"):
+                        st.info("Telegram integration requires bot setup. Message prepared!")
+                else:
+                    st.warning("No data for selected date")
+                else:
+                st.info("Enable 'Send Telegram Alert' in sidebar to configure alerts")
+        
+        with col2:
+            st.subheader("📥 Download Reports")
+            
+            report_gen = ReportGenerator()
+            
+            # Excel report
+            if st.button("📊 Generate Excel Report", use_container_width=True):
+                with st.spinner("Generating Excel report..."):
+                    try:
+                        os.makedirs('outputs', exist_ok=True)
+                        output_path = f"outputs/astrotrade_calendar_{st.session_state.profile_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                        
+                        report_gen.generate_excel(df, st.session_state.profile_name, output_path)
+                        
+                        with open(output_path, 'rb') as f:
+                            st.download_button(
+                                label="⬇️ Download Excel",
+                                data=f,
+                                file_name=os.path.basename(output_path),
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        
+                        st.success("✅ Excel report generated!")
+                    except Exception as e:
+                        st.error(f"Error generating Excel: {str(e)}")
+            
+            # CSV report
+            if st.button("📄 Generate CSV Report", use_container_width=True):
+                with st.spinner("Generating CSV report..."):
+                    try:
+                        os.makedirs('outputs', exist_ok=True)
+                        output_path = f"outputs/astrotrade_calendar_{st.session_state.profile_name}_{datetime.now().strftime('%Y%m%d')}.csv"
+                        
+                        report_gen.generate_csv(df, output_path)
+                        
+                        with open(output_path, 'rb') as f:
+                            st.download_button(
+                                label="⬇️ Download CSV",
+                                data=f,
+                                file_name=os.path.basename(output_path),
+                                mime="text/csv"
+                            )
+                        
+                        st.success("✅ CSV report generated!")
+                    except Exception as e:
+                        st.error(f"Error generating CSV: {str(e)}")
+        
+        st.divider()
+        
+        # Statistics summary
+        st.subheader("📈 Summary Statistics")
+        
+        stats = st.session_state.trading_calendar.get_statistics(df)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Days Analyzed", stats['summary']['total_days'])
+            st.metric("Nakshatra Changes in Market", stats['summary']['nakshatra_changes_market'])
+        
+        with col2:
+            st.metric("Favorable Trade Days", stats['summary']['trade_days'])
+            st.metric("Cautious Days", stats['summary']['light_days'])
+        
+        with col3:
+            st.metric("Avoid Days", stats['summary']['avoid_days'])
+            st.metric("Market Closed", stats['summary']['closed_days'])
+
+else:
+    # Welcome screen
+    st.info("👆 Please select a profile and date range from the sidebar, then click 'Generate Calendar' to begin.")
+    
+    st.markdown("""
+    ### 📚 Features:
+    
+    - **🗓️ Daily Calendar**: View trading recommendations for each day based on Vedic astrology
+    - **🌔 Hora & Panchanga**: Detailed planetary hours and traditional Hindu calendar elements
+    - **📊 Analytics**: Visualize patterns and correlations in your trading calendar
+    - **🔔 Alerts & Reports**: Export to Excel/CSV and configure Telegram notifications
+    
+    ### 🌟 Trading Logic:
+    
+    The app uses sophisticated Vedic astrology calculations including:
+    
+    - **Navatara Analysis**: 9-star classification from birth nakshatra
+    - **Ashtama Check**: 8th house moon positions (avoid/caution)
+    - **Nakshatra Transitions**: Alerts when nakshatra changes during market hours
+    - **Planetary Retrogrades**: Mercury, Jupiter, Saturn retrograde periods
+    - **Moon Phases**: Full moon and new moon considerations
+    
+    ### 🚀 Getting Started:
+    
+    1. Select your profile from the sidebar
+    2. Choose your date range
+    3. Configure options (Hora view, Panchanga, etc.)
+    4. Click "Generate Calendar"
+    5. Explore the four tabs for comprehensive analysis
+    """)
+    
+    # Sample profile info
+    if profiles:
+        st.markdown("### 👥 Available Profiles:")
+        for name, data in profiles.items():
+            with st.expander(f"📋 {name}"):
+                st.write(f"**Birth Date:** {data['dob']}")
+                st.write(f"**Birth Time:** {data['tob']}")
+                st.write(f"**Birth Place:** {data['pob']}")
+                st.write(f"**Lagna:** {data['lagna']}")
+
+# Footer
+st.divider()
+st.markdown("""
+<div style='text-align: center; color: #666; padding: 1rem;'>
+    <p>🌙 AstroTrade Personal Assistant v1.0.0</p>
+    <p style='font-size: 0.8rem;'>Using Swiss Ephemeris for precise astronomical calculations • Lahiri Ayanamsha</p>
+</div>
+""", unsafe_allow_html=True)
