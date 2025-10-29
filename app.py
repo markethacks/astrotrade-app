@@ -263,7 +263,130 @@ else:
             st.stop()
     
     df = st.session_state.df
-    st.write("Calendar generated! Add tabs and features here...")
+    
+    # Display metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Days", len(df))
+    with col2:
+        st.metric("🟢 Trade", len(df[df['recommendation'] == 'TRADE']))
+    with col3:
+        st.metric("🟡 Light", len(df[df['recommendation'] == 'LIGHT']))
+    with col4:
+        st.metric("🔴 Avoid", len(df[df['recommendation'] == 'AVOID']))
+    
+    st.markdown("---")
+    
+    # Create tabs
+    tabs = st.tabs(["📅 Calendar", "📊 Analytics", "📥 Export"])
+    
+    with tabs[0]:
+        st.subheader("📅 Trading Calendar")
+        
+        # Show market hour changes warning
+        market_changes = df[df.get('change_during_market', False) == True]
+        if len(market_changes) > 0:
+            st.warning(f"⚠️ **{len(market_changes)} market-hour changes detected!**")
+        
+        # Filter option
+        show_only = st.checkbox("Show only market-hour changes", False)
+        display_df = market_changes if show_only else df
+        
+        # Display calendar table
+        st.dataframe(
+            display_df[['date', 'weekday', 'nakshatra', 'navatara', 'recommendation', 'moon_sign']],
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    with tabs[1]:
+        st.subheader("📊 Analytics")
+        
+        # Pie chart for recommendations
+        import plotly.express as px
+        rec_counts = df['recommendation'].value_counts()
+        fig = px.pie(
+            values=rec_counts.values, 
+            names=rec_counts.index,
+            title="Recommendation Distribution",
+            color=rec_counts.index,
+            color_discrete_map={
+                'TRADE': '#28a745',
+                'LIGHT': '#ffc107', 
+                'AVOID': '#dc3545',
+                'CLOSED': '#6c757d'
+            }
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Navatara distribution
+        st.markdown("### Navatara Distribution")
+        nav_counts = df['navatara'].value_counts()
+        fig2 = px.bar(
+            x=nav_counts.index,
+            y=nav_counts.values,
+            labels={'x': 'Navatara', 'y': 'Count'},
+            title="Days by Navatara"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    with tabs[2]:
+        st.subheader("📥 Export Reports")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # CSV export
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="📄 Download CSV",
+                data=csv,
+                file_name=f"astrotradedays_{st.session_state.profile}_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Excel export
+            if st.button("📊 Generate Excel", use_container_width=True):
+                try:
+                    report_gen = ReportGenerator()
+                    excel_file = report_gen.create_excel_report(df, st.session_state.profile)
+                    with open(excel_file, 'rb') as f:
+                        st.download_button(
+                            label="⬇️ Download Excel",
+                            data=f,
+                            file_name=f"astrotradedays_{st.session_state.profile}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    st.success("✅ Excel ready!")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+        
+        st.markdown("---")
+        
+        # Show upcoming market-hour changes
+        st.markdown("### ⚠️ Upcoming Market-Hour Changes")
+        today = datetime.now().date()
+        upcoming = df[pd.to_datetime(df['date']).dt.date >= today]
+        changes = upcoming[upcoming.get('change_during_market', False) == True].head(10)
+        
+        if len(changes) > 0:
+            for _, row in changes.iterrows():
+                date_str = pd.to_datetime(row['date']).strftime('%d %b %Y')
+                with st.expander(f"⚠️ {date_str} - {row['weekday']} - {row['recommendation']}"):
+                    st.write(f"**Nakshatra:** {row['nakshatra']}")
+                    st.write(f"**Navatara:** {row['navatara']}")
+                    st.write(f"**Change Time:** {row.get('change_time', 'N/A')}")
+                    if row['recommendation'] == 'AVOID':
+                        st.error("🚫 Avoid trading on this day")
+                    elif row['recommendation'] == 'LIGHT':
+                        st.warning("⚠️ Trade with caution")
+                    else:
+                        st.success("✅ Favorable for trading")
+        else:
+            st.success("✅ No market-hour changes in upcoming days!")
 
 st.markdown("---")
 st.markdown(f"*AstroTradeDays v2.0 by ⚡ Market Hacks*")
